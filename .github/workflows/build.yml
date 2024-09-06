@@ -1,42 +1,41 @@
-name: DiskANN Build Python Wheel
-on: [workflow_call]
+name: Android CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
 jobs:
-  linux-build:
-    name: Python - Ubuntu - ${{matrix.cibw-identifier}}
-    strategy:
-      fail-fast: false
-      matrix:
-        cibw-identifier: ["cp39-manylinux_x86_64", "cp310-manylinux_x86_64", "cp311-manylinux_x86_64"]
+  build:
+    name: Build debug apk
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.5.0
         with:
-          fetch-depth: 1
-      - name: Building python wheel ${{matrix.cibw-identifier}}
-        uses: ./.github/actions/python-wheel
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v2
+    
+      - name: set up JDK 11
+        uses: actions/setup-java@v2
         with:
-          cibw-identifier: ${{matrix.cibw-identifier}}
-  windows-build:
-    name: Python - Windows - ${{matrix.cibw-identifier}}
-    strategy:
-      fail-fast: false
-      matrix:
-        cibw-identifier: ["cp39-win_amd64", "cp310-win_amd64", "cp311-win_amd64"]
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+          java-version: '11'
+          distribution: 'adopt'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug apk
+        uses: eskatos/gradle-command-action@v1
         with:
-          submodules: true
-          fetch-depth: 1
-      - name: Building python wheel ${{matrix.cibw-identifier}}
-        uses: ./.github/actions/python-wheel
+          arguments: assembleDebug
+          distributions-cache-enabled: true
+          dependencies-cache-enabled: true
+          configuration-cache-enabled: true
+
+      - name: Upload debug apk
+        uses: actions/upload-artifact@v2
         with:
-          cibw-identifier: ${{matrix.cibw-identifier}}
+          name: apk-debug
+          path: app/build/outputs/apk/debug
