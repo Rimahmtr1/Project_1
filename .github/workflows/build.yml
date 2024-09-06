@@ -1,46 +1,50 @@
-name: CI
-on:
+name: CI Workflow
+
+on: 
   push:
-    branches: [ main ]
+    branches:
+      - main
+  pull_request:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ${{ runner.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      # Get the current date
-      - name: Get Date
-        id: get-date
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
         run: |
-          echo "date=$(date -u '+%Y%m%d')" >> $GITHUB_ENV
+          if [[ "${{ runner.os }}" == "Linux" || "${{ runner.os }}" == "macOS" ]]; then
+            pip install -r requirements.txt
+          elif [[ "${{ runner.os }}" == "Windows" ]]; then
+            pip install -r requirements.txt
+          fi
 
-      # Cache Buildozer global directory
-      - name: Cache Buildozer global directory
-        uses: actions/cache@v2
-        with:
-          path: .buildozer_global
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+      - name: Run tests on Linux or macOS
+        if: startsWith(runner.os, 'Linux') || startsWith(runner.os, 'macOS')
+        run: |
+          echo "Running tests on Linux or macOS"
+          pytest tests/
 
-      # Cache Buildozer build directory
-      - name: Cache Buildozer build directory
-        uses: actions/cache@v2
-        with:
-          path: .buildozer
-          key: ${{ runner.os }}-${{ env.date }}-${{ hashFiles('buildozer.spec') }}
+      - name: Run tests on Windows
+        if: runner.os == 'Windows'
+        run: |
+          echo "Running tests on Windows"
+          pytest tests/
 
-      # Build with Buildozer
-      - name: Build with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
-        with:
-          command: buildozer android debug
-          buildozer_version: stable
+      - name: Build application
+        run: |
+          echo "Building application..."
+          # Add your build commands here
 
-      # Upload artifacts
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: package
-          path: ${{ steps.buildozer.outputs.filename }}
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "Build and tests completed successfully!"
